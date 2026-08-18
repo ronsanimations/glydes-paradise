@@ -1,5 +1,5 @@
 let accessGranted = false;
-const secretPassword = "MUSIC"; // Change this to your chosen password
+const secretPassword = "MUSIC"; // Keep your secret password
 
 while (!accessGranted) {
     let userPass = prompt("Welcome to Glyde's Paradise!\nEnter the secret password to play:");
@@ -18,105 +18,131 @@ if (accessGranted) {
     const canvas = document.getElementById("gameCanvas");
     const ctx = canvas.getContext("2d");
 
-    let player = { x: 50, y: 150, radius: 12, velocity: 0, gravity: 0.4, jump: -6 };
-    let notes = [];
-    let score = 0;
-    let gameActive = true;
-    let spawnTimer = 0;
+    // Map Settings (10 columns x 8 rows of tiles)
+    const TILE_SIZE = 40;
+    const MAP_COLS = 10;
+    const MAP_ROWS = 8;
 
-    window.addEventListener("touchstart", function(e) {
-        if (!gameActive) resetGame();
-        else player.velocity = player.jump;
-    }, { passive: true });
+    // 0 = Empty floor (dark), 1 = Cute barrier/wall (pink block)
+    const gameMap = [,
+ ,
+ ,
+ ,
+ ,
+ ,
+ ,
+        [1,1,1,1,1,1,1,1,1,1]
+    ];
 
-    window.addEventListener("mousedown", function(e) {
-        if (gameActive) player.velocity = player.jump;
-        else resetGame();
-    });
+    // Character Player
+    let player = {
+        x: 80,  // Start position X
+        y: 80,  // Start position Y
+        size: 14,
+        speed: 4,
+        color: "#ff60b5"
+    };
 
-    function resetGame() {
-        player.y = 150;
-        player.velocity = 0;
-        notes = [];
-        score = 0;
-        gameActive = true;
+    // Mobile Friendly Control Handling (Tracks screen presses)
+    let moveDirection = null;
+
+    // Clear background and draw map structures
+    function drawMap() {
+        for (let r = 0; r < MAP_ROWS; r++) {
+            for (let c = 0; c < MAP_COLS; c++) {
+                if (gameMap[r][c] === 1) {
+                    ctx.fillStyle = "#ff60b522"; // Translucent wall block
+                    ctx.fillRect(c * TILE_SIZE, r * TILE_SIZE, TILE_SIZE, TILE_SIZE);
+                    ctx.strokeStyle = "#ff60b5";
+                    ctx.lineWidth = 1;
+                    ctx.strokeRect(c * TILE_SIZE, r * TILE_SIZE, TILE_SIZE, TILE_SIZE);
+                } else {
+                    ctx.fillStyle = "#1e1e2a"; // Floor tile color
+                    ctx.fillRect(c * TILE_SIZE, r * TILE_SIZE, TILE_SIZE, TILE_SIZE);
+                }
+            }
+        }
+    }
+
+    // Check if the player is hitting a wall tile
+    function checkCollision(nextX, nextY) {
+        // Check 4 corners of character circle
+        let points = [
+            {x: nextX - player.size, y: nextY - player.size},
+            {x: nextX + player.size, y: nextY - player.size},
+            {x: nextX - player.size, y: nextY + player.size},
+            {x: nextX + player.size, y: nextY + player.size}
+        ];
+
+        for (let p of points) {
+            let cellX = Math.floor(p.x / TILE_SIZE);
+            let cellY = Math.floor(p.y / TILE_SIZE);
+            
+            // Out of bounds or hitting a wall value (1)
+            if (cellX < 0 || cellX >= MAP_COLS || cellY < 0 || cellY >= MAP_ROWS) return true;
+            if (gameMap[cellY][cellX] === 1) return true;
+        }
+        return false;
+    }
+
+    // Touch handlers: Reading screen coordinates to guide movement
+    window.addEventListener("touchstart", handleTouch, { passive: false });
+    window.addEventListener("touchmove", handleTouch, { passive: false });
+    window.addEventListener("touchend", () => { moveDirection = null; });
+
+    function handleTouch(e) {
+        e.preventDefault();
+        let rect = canvas.getBoundingClientRect();
+        let touchX = e.touches[0].clientX - rect.left;
+        let touchY = e.touches[0].clientY - rect.top;
+
+        // Calculate touch position relative to the middle of the screen canvas
+        let deltaX = touchX - (canvas.width / 2);
+        let deltaY = touchY - (canvas.height / 2);
+
+        if (Math.abs(deltaX) > Math.abs(deltaY)) {
+            moveDirection = deltaX > 0 ? "RIGHT" : "LEFT";
+        } else {
+            moveDirection = deltaY > 0 ? "DOWN" : "UP";
+        }
+    }
+
+    // Move player based on touch directions
+    function updatePlayer() {
+        let nextX = player.x;
+        let nextY = player.y;
+
+        if (moveDirection === "UP") nextY -= player.speed;
+        if (moveDirection === "DOWN") nextY += player.speed;
+        if (moveDirection === "LEFT") nextX -= player.speed;
+        if (moveDirection === "RIGHT") nextX += player.speed;
+
+        if (!checkCollision(nextX, nextY)) {
+            player.x = nextX;
+            player.y = nextY;
+        }
     }
 
     function gameLoop() {
         ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-        if (gameActive) {
-            player.velocity += player.gravity;
-            player.y += player.velocity;
+        updatePlayer();
+        drawMap();
 
-            if (player.y + player.radius > canvas.height) {
-                player.y = canvas.height - player.radius;
-                gameActive = false;
-            }
-            if (player.y - player.radius < 0) {
-                player.y = player.radius;
-                player.velocity = 0;
-            }
-
-            spawnTimer++;
-            if (spawnTimer % 90 === 0) {
-                let gapY = Math.random() * (canvas.height - 100) + 20;
-                notes.push({ x: canvas.width, y: gapY, radius: 10, passed: false });
-            }
-
-            for (let i = notes.length - 1; i >= 0; i--) {
-                notes[i].x -= 2.5;
-
-                ctx.beginPath();
-                ctx.arc(notes[i].x, notes[i].y, notes[i].radius, 0, Math.PI * 2);
-                ctx.fillStyle = "#00f0ff";
-                ctx.fill();
-                ctx.closePath();
-
-                let distX = player.x - notes[i].x;
-                let distY = player.y - notes[i].y;
-                let distance = Math.sqrt(distX * distX + distY * distY);
-
-                if (distance < player.radius + notes[i].radius) {
-                    gameActive = false;
-                }
-
-                if (!notes[i].passed && notes[i].x < player.x) {
-                    notes[i].passed = true;
-                    score++;
-                }
-
-                if (notes[i].x < -20) notes.splice(i, 1);
-            }
-        }
-
+        // Draw character (Cute glowing DJ avatar base)
         ctx.beginPath();
-        ctx.arc(player.x, player.y, player.radius, 0, Math.PI * 2);
-        ctx.fillStyle = "#ff60b5";
+        ctx.arc(player.x, player.y, player.size, 0, Math.PI * 2);
+        ctx.fillStyle = player.color;
         ctx.fill();
         ctx.strokeStyle = "#fff";
         ctx.lineWidth = 2;
         ctx.stroke();
         ctx.closePath();
 
-        ctx.fillStyle = "#fff";
-        ctx.font = "bold 16px sans-serif";
-        ctx.fillText("Score: " + score, 20, 30);
-
-        if (!gameActive) {
-            ctx.fillStyle = "rgba(0, 0, 0, 0.75)";
-            ctx.fillRect(0, 0, canvas.width, canvas.height);
-            
-            ctx.fillStyle = "#ff60b5";
-            ctx.font = "bold 24px sans-serif";
-            ctx.textAlign = "center";
-            ctx.fillText("GG! Stream Over", canvas.width / 2, canvas.height / 2 - 10);
-            
-            ctx.fillStyle = "#fff";
-            ctx.font = "14px sans-serif";
-            ctx.fillText("Tap screen to drop the beat again", canvas.width / 2, canvas.height / 2 + 25);
-            ctx.textAlign = "left";
-        }
+        // Instructional Tip Display
+        ctx.fillStyle = "#ffffff99";
+        ctx.font = "12px sans-serif";
+        ctx.fillText("Press & slide side-to-side to wander", 20, 25);
 
         requestAnimationFrame(gameLoop);
     }
