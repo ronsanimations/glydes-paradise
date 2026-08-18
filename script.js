@@ -31,7 +31,7 @@ if (accessGranted) {
  ,
  ,
  ,
-        [1,1,1,1,1,1,1,1,1,1]
+        [1, 1, 1, 1, 1, 1, 1, 1, 1, 1]
     ];
 
     // Character Player
@@ -51,7 +51,7 @@ if (accessGranted) {
         for (let r = 0; r < MAP_ROWS; r++) {
             for (let c = 0; c < MAP_COLS; c++) {
                 if (gameMap[r][c] === 1) {
-                    ctx.fillStyle = "#ff60b522"; // Translucent wall block
+                    ctx.fillStyle = "rgba(255, 96, 181, 0.15)"; // Translucent wall block
                     ctx.fillRect(c * TILE_SIZE, r * TILE_SIZE, TILE_SIZE, TILE_SIZE);
                     ctx.strokeStyle = "#ff60b5";
                     ctx.lineWidth = 1;
@@ -90,15 +90,29 @@ if (accessGranted) {
     window.addEventListener("touchmove", handleTouch, { passive: false });
     window.addEventListener("touchend", () => { moveDirection = null; });
 
+    // Click handlers for desktop testing
+    window.addEventListener("mousedown", handleMouse);
+    window.addEventListener("mouseup", () => { moveDirection = null; });
+
     function handleTouch(e) {
         e.preventDefault();
         let rect = canvas.getBoundingClientRect();
         let touchX = e.touches[0].clientX - rect.left;
         let touchY = e.touches[0].clientY - rect.top;
+        calculateDirection(touchX, touchY);
+    }
 
-        // Calculate touch position relative to the middle of the screen canvas
-        let deltaX = touchX - (canvas.width / 2);
-        let deltaY = touchY - (canvas.height / 2);
+    function handleMouse(e) {
+        let rect = canvas.getBoundingClientRect();
+        let mouseX = e.clientX - rect.left;
+        let mouseY = e.clientY - rect.top;
+        calculateDirection(mouseX, mouseY);
+    }
+
+    function calculateDirection(targetX, targetY) {
+        // Calculate position relative to player's current spot
+        let deltaX = targetX - player.x;
+        let deltaY = targetY - player.y;
 
         if (Math.abs(deltaX) > Math.abs(deltaY)) {
             moveDirection = deltaX > 0 ? "RIGHT" : "LEFT";
